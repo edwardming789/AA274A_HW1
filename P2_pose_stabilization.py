@@ -1,5 +1,6 @@
 import numpy as np
 from utils import wrapToPi
+import math
 
 # command zero velocities once we are this close to the goal
 RHO_THRES = 0.05
@@ -34,11 +35,16 @@ class PoseController:
         may also be useful, look up its documentation
         """
         ########## Code starts here ##########
-        
+        pho = math.sqrt((self.x_g-x)**2 + (self.y_g - y)**2)
+        alpha = wrapToPi(math.atan2((self.y_g - y),(self.x_g - x)) - th)
+        delta = wrapToPi(alpha + th)
+        V = self.k1 * pho * math.cos(alpha)
+        om = self.k2 * alpha + self.k1 * np.sinc(alpha) * math.cos(alpha) * (alpha + self.k3 * delta)
         ########## Code ends here ##########
 
         # apply control limits
-        V = np.clip(V, -self.V_max, self.V_max)
+        #V = np.clip(V, -self.V_max, self.V_max)
+        V = np.clip(V, 0, self.V_max)
         om = np.clip(om, -self.om_max, self.om_max)
 
         return V, om

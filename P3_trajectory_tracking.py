@@ -1,5 +1,6 @@
 import numpy as np
 from numpy import linalg
+import math
 
 V_PREV_THRES = 0.0001
 
@@ -60,6 +61,22 @@ class TrajectoryTracker:
         ########## Code starts here ##########
         V = 0
         om = 0
+        
+        u1 = xdd_d + self.kpx*(x_d - x) + self.kdx*(xd_d - self.V_prev*math.cos(th))
+        u2 = ydd_d + self.kpy*(y_d - y) + self.kdy*(yd_d - self.V_prev*math.sin(th))
+        
+        V = math.sqrt(xd_d**2 + yd_d**2)
+        
+        u = np.array([u1,u2])
+        A = np.array([[math.cos(th), -self.V_prev*math.sin(th)],
+                      [math.sin(th), self.V_prev*math.cos(th)]])
+        
+        if abs(self.V_prev) > V_PREV_THRES:
+            
+            V_d, om = linalg.solve(A,u)
+            
+            V = self.V_prev + dt * V_d   
+            
         ########## Code ends here ##########
 
         # apply control limits

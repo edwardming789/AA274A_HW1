@@ -33,7 +33,28 @@ def compute_traj_coeffs(initial_state, final_state, tf):
     Hint: Use the np.linalg.solve function.
     """
     ########## Code starts here ##########
-
+    a1 = np.array([[1,0,0,0],
+                  [1,tf,tf**2,tf**3],
+                  [0,1,0,0],
+                  [0,1,2*tf,3*(tf**2)]])
+    b1 = np.array([initial_state.x,
+                  final_state.x,
+                  initial_state.xd,
+                  final_state.xd])
+    
+    a2 = np.array([[1,0,0,0],
+                  [1,tf,tf**2,tf**3],
+                  [0,1,0,0],
+                  [0,1,2*tf,3*(tf**2)]])
+    b2 = np.array([initial_state.y,
+                  final_state.y,
+                  initial_state.yd,
+                  final_state.yd])
+    xcoeffs = linalg.solve(a1,b1)
+    ycoeffs = linalg.solve(a2,b2)
+    
+    coeffs = np.hstack([xcoeffs,ycoeffs])
+    #print(coeffs)
     ########## Code ends here ##########
     return coeffs
 
@@ -50,7 +71,21 @@ def compute_traj(coeffs, tf, N):
     t = np.linspace(0,tf,N) # generate evenly spaced points from 0 to tf
     traj = np.zeros((N,7))
     ########## Code starts here ##########
-
+    for i in range(N):
+        #x
+        traj[i,0] = np.dot(coeffs[:4],np.array([1,t[i],t[i]**2,t[i]**3]))
+        #y
+        traj[i,1] = np.dot(coeffs[4:],np.array([1,t[i],t[i]**2,t[i]**3]))
+        #xdot
+        traj[i,3] = coeffs[1]+2*coeffs[2]*t[i]+3*coeffs[3]*t[i]**2
+        #ydot
+        traj[i,4] = coeffs[5]+2*coeffs[6]*t[i]+3*coeffs[7]*t[i]**2
+        #theta
+        traj[i,2] = math.atan2(traj[i,4],traj[i,3])
+        #xdotdot
+        traj[i,5] = 2*coeffs[2]+6*coeffs[3]*t[i]
+        #ydotdot
+        traj[i,6] = 2*coeffs[6]+6*coeffs[7]*t[i]
     ########## Code ends here ##########
 
     return t, traj
@@ -64,9 +99,17 @@ def compute_controls(traj):
         om (np.array shape [N]) om at each point of traj
     """
     ########## Code starts here ##########
-
+    N = len(traj)
+    V = np.zeros(N)
+    om = np.zeros(N)
+    for i in range(N):
+        V[i] = math.sqrt(traj[i,3]**2+traj[i,4]**2)
+        b = np.array([traj[i,5],traj[i,6]])
+        a = np.array([[math.cos(traj[i,2]), -V[i]*math.sin(traj[i,2])],
+                      [math.sin(traj[i,2]), V[i]*math.cos(traj[i,2])]])
+        [_,om[i]] = linalg.solve(a,b)
     ########## Code ends here ##########
-
+    print(V)
     return V, om
 
 def compute_arc_length(V, t):
@@ -83,7 +126,8 @@ def compute_arc_length(V, t):
     """
     s = None
     ########## Code starts here ##########
-
+    s = cumtrapz(V,t,initial=0)
+    print(len(s))
     ########## Code ends here ##########
     return s
 
@@ -104,8 +148,12 @@ def rescale_V(V, om, V_max, om_max):
     Hint: This should only take one or two lines.
     """
     ########## Code starts here ##########
-
+    V_tilde = np.zeros(len(V))
+    #print(V)
+    for i in range(len(V)):
+        V_tilde[i] = min(V[i],V_max) if -om_max< om[i] < om_max else min(V_max, om_max/abs(om[i])*V[i])
     ########## Code ends here ##########
+    #print(V_tilde)
     return V_tilde
 
 
@@ -121,7 +169,8 @@ def compute_tau(V_tilde, s):
     Hint: Use the function cumtrapz. This should take one line.
     """
     ########## Code starts here ##########
-
+    #print(len(V_tilde), len(s))
+    tau = cumtrapz(1/V_tilde,s,initial=0)
     ########## Code ends here ##########
     return tau
 
@@ -138,7 +187,7 @@ def rescale_om(V, om, V_tilde):
     Hint: This should take one line.
     """
     ########## Code starts here ##########
-
+    om_tilde = V_tilde/V*om
     ########## Code ends here ##########
     return om_tilde
 
@@ -208,7 +257,7 @@ if __name__ == "__main__":
     s_0 = State(x=0, y=0, V=V_max, th=-np.pi/2)
 
     # Final conditions
-    s_f = State(x=5, y=5, V=V_max, th=-np.pi/2)
+    s_f = State(x=4, y=0, V=V_max, th=-np.pi/2)
 
     coeffs = compute_traj_coeffs(initial_state=s_0, final_state=s_f, tf=tf)
     t, traj = compute_traj(coeffs=coeffs, tf=tf, N=N)
@@ -240,7 +289,7 @@ if __name__ == "__main__":
     plt.xlabel('X [m]')
     plt.ylabel('Y [m]')
     plt.title("Path (position)")
-    plt.axis([-1, 6, -1, 6])
+    plt.axis([-1, 8, -1, 8])
 
     ax = plt.subplot(2, 2, 2)
     plt.plot(t, V, linewidth=2)
